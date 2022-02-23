@@ -58,9 +58,12 @@ func main() {
 	}
 
 	for range watcher.ResultChan() {
-		err := os.WriteFile(nodesFile, []byte(getNodes(clients)), 0666)
-		if err != nil {
-			log.Printf("failed to write nodes file: %s\n", err)
+		nodes := getNodes(clients)
+		if len(nodes) > 0 {
+			err := os.WriteFile(nodesFile, []byte(getNodes(clients)), 0666)
+			if err != nil {
+				log.Printf("failed to write nodes file: %s\n", err)
+			}
 		}
 	}
 }
