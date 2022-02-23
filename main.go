@@ -18,15 +18,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var appSelector, namespace, nodesFile, service string
-var apiPort, peerPort int
-
 func main() {
-	flag.StringVar(&appSelector, "app-selector", "app.kubernetes.io/name=typesense", "Full label expression used to list Typesense pods")
+	var namespace, service, nodesFile string
+	var peerPort int
+
 	flag.StringVar(&namespace, "namespace", "typesense", "The namespace that Typesense is installed within")
 	flag.StringVar(&service, "service", "ts", "The name of the Typesense service to use the endpoints of")
 	flag.StringVar(&nodesFile, "nodes-file", "/usr/share/typesense/nodes", "The location of the file to write node information to")
-	flag.IntVar(&apiPort, "api-port", 8108, "The port used by Typesense for API requests")
 	flag.IntVar(&peerPort, "peer-port", 8107, "The port used by Typesense for peering")
 	flag.Parse()
 
@@ -59,14 +57,14 @@ func main() {
 	}
 
 	for range watcher.ResultChan() {
-		err := os.WriteFile(nodesFile, []byte(getNodes(clients)), 0666)
+		err := os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort)), 0666)
 		if err != nil {
 			log.Printf("failed to write nodes file: %s\n", err)
 		}
 	}
 }
 
-func getNodes(clients *kubernetes.Clientset) string {
+func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort int) string {
 	var nodes []string
 
 	endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
@@ -82,25 +80,10 @@ func getNodes(clients *kubernetes.Clientset) string {
 
 		for _, s := range e.Subsets {
 			for _, a := range s.Addresses {
-				nodes = append(nodes, fmt.Sprintf("%s:%d:%d", a.IP, peerPort, apiPort))
+				for _, p := range s.Ports {
+					nodes = append(nodes, fmt.Sprintf("%s:%d:%d", a.IP, peerPort, p.Port))
+				}
 			}
-		}
-	}
-
-	// Fall back to grabbing the pod IPs, we should only need to do this if the pods aren't ready,
-	// e.g. if we're bootstrapping a cluster.
-	if len(nodes) == 0 {
-		pods, err := clients.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: appSelector,
-		})
-
-		if err != nil {
-			log.Printf("failed to list pods: %s\n", err)
-			return ""
-		}
-
-		for _, pod := range pods.Items {
-			nodes = append(nodes, fmt.Sprintf("%s:%d:%d", pod.Status.PodIP, peerPort, apiPort))
 		}
 	}
 
