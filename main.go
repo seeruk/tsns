@@ -38,23 +38,23 @@ func main() {
 		// No config file found, fall back to in-cluster config.
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			log.Printf("failed to build local config: %s\n", err)
+			log.Fatalf("failed to build local config: %s\n", err)
 		}
 	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", configPath)
 		if err != nil {
-			log.Printf("failed to build in-cluster config: %s\n", err)
+			log.Fatalf("failed to build in-cluster config: %s\n", err)
 		}
 	}
 
 	clients, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Printf("failed to create kubernetes client: %s\n", err)
+		log.Fatalf("failed to create kubernetes client: %s\n", err)
 	}
 
 	watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		log.Printf("failed to create endpoints watcher: %s\n", err)
+		log.Fatalf("failed to create endpoints watcher: %s\n", err)
 	}
 
 	for range watcher.ResultChan() {

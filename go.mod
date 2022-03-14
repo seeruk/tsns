@@ -1,4 +1,4 @@
-module github.com/seeruk/typesense-sidecar
+module github.com/seeruk/tsns
 
 go 1.17
 
